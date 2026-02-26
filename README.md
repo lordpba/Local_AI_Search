@@ -21,8 +21,8 @@ PrivateSearch lets you search and chat with your personal documents using artifi
 | **Docker** | Docker Desktop installed and running |
 | **Ollama** | Installed and running ([ollama.com](https://ollama.com)) |
 | **GPU** | NVIDIA/AMD with at least 6 GB VRAM (Fast profile) or 12 GB (Precise profile) |
-| **RAM** | 8 GB minimum |
-| **Disk space** | ~15 GB for AI models |
+| **RAM** | 16 GB minimum (32 GB recommended for Precise profile) |
+| **Disk space** | ~20 GB for AI models |
 
 ## 🚀 Quick Start
 
