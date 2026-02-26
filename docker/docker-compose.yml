@@ -1,0 +1,38 @@
+# ─── PrivateSearch — Docker Compose ─────────────────────────
+# Prerequisite: Ollama must be running on the host machine.
+# Install Ollama: https://ollama.com
+# ────────────────────────────────────────────────────────────
+
+services:
+  privatesearch:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: privatesearch
+    restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    ports:
+      - "7860:7860"
+    volumes:
+      # Persistent data: vector store, OCR cache, config
+      - privatesearch-data:/data
+      # Mount entire home directory read-only so user can browse any folder
+      # The app only reads files, never writes to the documents folder
+      - ${HOME:-/home}:/host-home:ro
+    extra_hosts:
+      # Allow container to reach Ollama on the host
+      - "host.docker.internal:host-gateway"
+    environment:
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - PRIVATESEARCH_DATA=/data
+      - HOST_HOME_PATH=${HOME:-/home}
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:7860/', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  privatesearch-data:
+    name: privatesearch-data

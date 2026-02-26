@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.git/
+.gitignore
+data/
+*.egg-info/
+.env
+docker/.env
+.vscode/
+*.md
+LICENSE
