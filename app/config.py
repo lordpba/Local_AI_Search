@@ -20,11 +20,10 @@ CONFIG_FILE = DATA_DIR / "config.json"
 MANIFEST_FILE = DATA_DIR / "index_manifest.json"
 
 # ─── Ollama connection ────────────────────────────────────────────────────────
+# With network_mode: host, the container shares the host's network stack,
+# so Ollama is reachable at localhost:11434 (its default bind address).
 
-OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://host.docker.internal:11434")
-# Fallback for running outside Docker (native)
-if os.environ.get("PRIVATESEARCH_NATIVE"):
-    OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 
 # ─── Model definitions ───────────────────────────────────────────────────────
 

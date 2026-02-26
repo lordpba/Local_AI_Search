@@ -11,19 +11,18 @@ services:
     container_name: privatesearch
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"
-    ports:
-      - "7860:7860"
+    # Use host network so the container can reach Ollama on localhost:11434
+    # without requiring any Ollama reconfiguration (keeps default 127.0.0.1 bind).
+    # Port 7860 is exposed directly on the host.
+    network_mode: host
     volumes:
       # Persistent data: vector store, OCR cache, config
       - privatesearch-data:/data
       # Mount entire home directory read-only so user can browse any folder
       # The app only reads files, never writes to the documents folder
       - ${HOME:-/home}:/host-home:ro
-    extra_hosts:
-      # Allow container to reach Ollama on the host
-      - "host.docker.internal:host-gateway"
     environment:
-      - OLLAMA_HOST=http://host.docker.internal:11434
+      - OLLAMA_HOST=http://localhost:11434
       - PRIVATESEARCH_DATA=/data
       - HOST_HOME_PATH=${HOME:-/home}
       - PYTHONUNBUFFERED=1

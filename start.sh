@@ -55,33 +55,6 @@ if [ "$OLLAMA_OK" = false ]; then
     echo "   Continuo l'avvio... potrai configurare Ollama dall'app."
 fi
 
-# ─── Configure Ollama for Docker access ───────────────────
-# Ollama must listen on 0.0.0.0 so the Docker container can reach it.
-if [ "$OLLAMA_OK" = true ]; then
-    OLLAMA_BIND=$(ss -tlnp 2>/dev/null | grep ":11434" | head -1 || true)
-    if echo "$OLLAMA_BIND" | grep -q "127.0.0.1"; then
-        echo ""
-        echo -e "${YELLOW}⚠️  Ollama ascolta solo su localhost — necessario 0.0.0.0 per Docker.${NC}"
-        echo "   Configuro automaticamente..."
-        
-        OVERRIDE_DIR="/etc/systemd/system/ollama.service.d"
-        OVERRIDE_FILE="$OVERRIDE_DIR/docker-access.conf"
-        
-        if [[ -f /etc/systemd/system/ollama.service ]]; then
-            sudo mkdir -p "$OVERRIDE_DIR"
-            echo -e '[Service]\nEnvironment="OLLAMA_HOST=0.0.0.0"' | sudo tee "$OVERRIDE_FILE" > /dev/null
-            sudo systemctl daemon-reload
-            sudo systemctl restart ollama
-            sleep 3
-            echo -e "  ✅ Ollama configurato su 0.0.0.0"
-        else
-            echo -e "${YELLOW}   Imposta manualmente: OLLAMA_HOST=0.0.0.0 ollama serve${NC}"
-        fi
-    else
-        echo -e "  ✅ Ollama: bind su tutte le interfacce"
-    fi
-fi
-
 # ─── Generate .env for Docker Compose ─────────────────────
 echo "PUID=$(id -u)" > "$ENV_FILE"
 echo "PGID=$(id -g)" >> "$ENV_FILE"
