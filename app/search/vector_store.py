@@ -115,9 +115,15 @@ class VectorStore:
         ids = []
         documents = []
         metadatas = []
+        seen_ids = set()
 
         for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+            # Use enumeration index i as fallback to guarantee uniqueness
             cid = chunk_id(file_info["path"], chunk.metadata.get("chunk_index", i))
+            # Safety: if duplicate ID detected, append suffix to make it unique
+            if cid in seen_ids:
+                cid = chunk_id(file_info["path"], f"{chunk.metadata.get('chunk_index', i)}_{i}")
+            seen_ids.add(cid)
             ids.append(cid)
             documents.append(chunk.text)
             metadatas.append({

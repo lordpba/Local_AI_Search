@@ -108,6 +108,7 @@ def chunk_documents(
     """
     all_chunks = []
     total = len(documents)
+    global_chunk_idx = 0  # file-global counter to guarantee unique chunk_index
 
     for i, doc in enumerate(documents):
         if progress_callback:
@@ -125,8 +126,9 @@ def chunk_documents(
         if _is_table(text) and len(text) <= chunk_size * 1.5:
             all_chunks.append(TextChunk(
                 text=text,
-                metadata={**doc.metadata, "chunk_index": 0, "is_table": True}
+                metadata={**doc.metadata, "chunk_index": global_chunk_idx, "is_table": True}
             ))
+            global_chunk_idx += 1
             continue
 
         # Split text into chunks
@@ -136,8 +138,9 @@ def chunk_documents(
             if chunk_text.strip():
                 all_chunks.append(TextChunk(
                     text=chunk_text.strip(),
-                    metadata={**doc.metadata, "chunk_index": j}
+                    metadata={**doc.metadata, "chunk_index": global_chunk_idx}
                 ))
+                global_chunk_idx += 1
 
     if progress_callback:
         progress_callback(1.0, f"Suddivisione completata: {len(all_chunks)} sezioni create")

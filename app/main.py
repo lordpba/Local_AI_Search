@@ -272,75 +272,124 @@ def on_check_folder(folder_path: str):
 
 
 def on_index_documents(folder_path: str, progress=gr.Progress()):
-    """Run the full indexing pipeline: scan → load → OCR → chunk → embed → store."""
+    """Run the full indexing pipeline: scan → load → OCR → chunk → embed → store.
+    Yields intermediate Markdown updates so the user sees real-time progress.
+    """
     actual_path = host_to_container_path(folder_path.strip()) if folder_path else ""
     if not actual_path or not Path(actual_path).is_dir():
-        return "❌ Cartella non valida."
+        yield "❌ Cartella non valida."
+        return
 
     init_components()
+    t0 = time.time()
 
-    # 1. Scan folder
+    # Helper: build a live status block
+    def _status(phase: str, detail: str, file_num: int = 0,
+                total: int = 0, processed_ok: int = 0, errors: int = 0):
+        pct = int(file_num / total * 100) if total else 0
+        bar_done = pct // 5          # 20-char bar
+        bar_left = 20 - bar_done
+        bar = "█" * bar_done + "░" * bar_left
+        elapsed = time.time() - t0
+        lines = [
+            f"### ⏳ Indicizzazione in corso…\n",
+            f"**Fase:** {phase}\n",
+            f"**Progresso:** `{bar}` {pct}%  —  file {file_num}/{total}\n",
+            f"**File corrente:** {detail}\n",
+            f"⏱️ Tempo trascorso: {elapsed:.0f}s",
+        ]
+        if processed_ok or errors:
+            lines.append(f"  ·  ✅ {processed_ok} ok")
+            if errors:
+                lines.append(f"  ·  ⚠️ {errors} saltati")
+        return "\n".join(lines)
+
+    # 1. Scan folder ──────────────────────────────────────────────
+    yield _status("Scansione cartella", folder_path.strip())
     progress(0.0, "Scansione cartella...")
     files = scan_folder(actual_path, ALL_EXTENSIONS)
     if not files:
-        return "⚠️ Nessun file supportato trovato."
+        yield "⚠️ Nessun file supportato trovato."
+        return
 
-    # 2. Detect changes (incremental)
+    # 2. Detect changes ───────────────────────────────────────────
+    yield _status("Rilevamento modifiche", f"{len(files)} file trovati")
     changes = vector_store.detect_changes(files)
     files_to_process = changes["new"] + changes["modified"]
 
-    # 3. Handle deletions
+    # 3. Handle deletions ─────────────────────────────────────────
     for deleted_path in changes["deleted"]:
+        yield _status("Rimozione file obsoleti", Path(deleted_path).name)
         progress(0.05, f"Rimozione {Path(deleted_path).name}...")
         vector_store.remove_file(deleted_path)
 
     if not files_to_process and not changes["deleted"]:
         stats = vector_store.get_stats()
-        return (
-            f"✅ Nessuna modifica da processare.\n"
+        yield (
+            f"✅ Nessuna modifica da processare.\n\n"
             f"📊 {stats['total_chunks']} sezioni da {stats['total_files']} file."
         )
+        return
 
     total_files = len(files_to_process)
     processed = 0
+    skipped = 0
     total_chunks_added = 0
 
-    # 4. Process each file
+    # 4. Process each file ────────────────────────────────────────
     for fi, file_info in enumerate(files_to_process):
         file_progress_base = 0.1 + (fi / total_files) * 0.85
         fp = Path(file_info["path"])
 
-        progress(file_progress_base, f"[{fi+1}/{total_files}] Elaborazione {fp.name}...")
+        # ── 4a. Load document ────────────────────────────────────
+        phase = "Caricamento documento"
+        yield _status(phase, fp.name, fi + 1, total_files, processed, skipped)
+        progress(file_progress_base, f"[{fi+1}/{total_files}] {fp.name}...")
 
-        # Load document
-        docs, ocr_queue = load_documents(
-            actual_path, [file_info],
-            progress_callback=lambda p, m: progress(file_progress_base + p * 0.2 / total_files, m),
-        )
-
-        # OCR if needed
-        if ocr_queue:
-            progress(file_progress_base + 0.2 / total_files, f"OCR: {fp.name}...")
-            ocr_docs = ocr_engine.process_ocr_queue(
-                ocr_queue,
-                progress_callback=lambda p, m: progress(
-                    file_progress_base + (0.2 + p * 0.3) / total_files, m
-                ),
+        try:
+            docs, ocr_queue = load_documents(
+                actual_path, [file_info],
+                progress_callback=lambda p, m: progress(file_progress_base + p * 0.2 / total_files, m),
             )
-            docs.extend(ocr_docs)
+        except Exception as e:
+            logger.error(f"Load failed for {fp.name}: {e}")
+            skipped += 1
+            continue
+
+        # ── 4b. OCR if needed ────────────────────────────────────
+        if ocr_queue:
+            phase = "OCR (riconoscimento testo)"
+            yield _status(phase, fp.name, fi + 1, total_files, processed, skipped)
+            progress(file_progress_base + 0.2 / total_files, f"OCR: {fp.name}...")
+            try:
+                ocr_docs = ocr_engine.process_ocr_queue(
+                    ocr_queue,
+                    progress_callback=lambda p, m: progress(
+                        file_progress_base + (0.2 + p * 0.3) / total_files, m
+                    ),
+                )
+                docs.extend(ocr_docs)
+            except Exception as e:
+                logger.error(f"OCR failed for {fp.name}: {e}")
 
         if not docs:
             logger.warning(f"No text extracted from {fp.name}")
+            skipped += 1
             continue
 
-        # Chunk
+        # ── 4c. Chunk ────────────────────────────────────────────
+        phase = "Suddivisione testo"
+        yield _status(phase, fp.name, fi + 1, total_files, processed, skipped)
         progress(file_progress_base + 0.5 / total_files, f"Suddivisione: {fp.name}...")
         chunks = chunk_documents(docs)
 
         if not chunks:
+            skipped += 1
             continue
 
-        # Embed
+        # ── 4d. Embed ────────────────────────────────────────────
+        phase = "Generazione embedding"
+        yield _status(phase, f"{fp.name} ({len(chunks)} sezioni)", fi + 1, total_files, processed, skipped)
         progress(file_progress_base + 0.6 / total_files, f"Embedding: {fp.name}...")
         texts = [c.text for c in chunks]
         embeddings = embedder.embed_batch(
@@ -350,31 +399,40 @@ def on_index_documents(folder_path: str, progress=gr.Progress()):
             ),
         )
 
-        # Store (upsert handles duplicates)
+        # ── 4e. Store ────────────────────────────────────────────
+        phase = "Salvataggio nell'indice"
+        yield _status(phase, fp.name, fi + 1, total_files, processed, skipped)
         progress(file_progress_base + 0.9 / total_files, f"Salvataggio: {fp.name}...")
-        if file_info in changes["modified"]:
-            vector_store.update_file(chunks, embeddings, file_info)
-        else:
-            vector_store.add_chunks(chunks, embeddings, file_info)
+        try:
+            if file_info in changes["modified"]:
+                vector_store.update_file(chunks, embeddings, file_info)
+            else:
+                vector_store.add_chunks(chunks, embeddings, file_info)
+        except Exception as e:
+            logger.error(f"Store failed for {fp.name}: {e}")
+            skipped += 1
+            continue
 
         processed += 1
         total_chunks_added += len(chunks)
 
     progress(1.0, "Indicizzazione completata!")
 
+    elapsed = time.time() - t0
     stats = vector_store.get_stats()
-    result = (
-        f"✅ **Indicizzazione completata!**\n\n"
-        f"📄 File elaborati: {processed}/{total_files}\n"
-    )
+
+    result = f"### ✅ Indicizzazione completata!\n\n"
+    result += f"| | |\n|---|---|\n"
+    result += f"| 📄 File elaborati | **{processed}** / {total_files} |\n"
+    if skipped:
+        result += f"| ⚠️ File saltati | **{skipped}** |\n"
     if changes["deleted"]:
-        result += f"🗑️ File rimossi dall'indice: {len(changes['deleted'])}\n"
-    result += (
-        f"📊 Sezioni create: {total_chunks_added}\n"
-        f"📊 Totale nell'indice: {stats['total_chunks']} sezioni da {stats['total_files']} file\n\n"
-        f"Puoi iniziare a cercare nella scheda **💬 Chat**!"
-    )
-    return result
+        result += f"| 🗑️ File rimossi | **{len(changes['deleted'])}** |\n"
+    result += f"| 📊 Sezioni create | **{total_chunks_added}** |\n"
+    result += f"| 📊 Totale nell'indice | **{stats['total_chunks']}** sezioni da **{stats['total_files']}** file |\n"
+    result += f"| ⏱️ Tempo | **{elapsed:.0f}** secondi |\n"
+    result += f"\n🎉 Puoi iniziare a cercare nella scheda **💬 Chat**!"
+    yield result
 
 
 def on_chat_message(message: str, history: list):

@@ -121,7 +121,7 @@ class Embedder:
             return False
 
 
-def chunk_id(filepath: str, chunk_index: int) -> str:
+def chunk_id(filepath: str, chunk_index) -> str:
     """Generate deterministic chunk ID to prevent duplicates in ChromaDB."""
     raw = f"{filepath}::chunk::{chunk_index}"
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
