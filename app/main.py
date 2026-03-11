@@ -458,13 +458,24 @@ def on_chat_message(message: str, history: list):
         response_text = partial
         sources = src
 
-    # Format sources
+    # Format sources — show only top relevant ones to avoid clutter
+    MAX_DISPLAY_SOURCES = 6
+    MIN_DISPLAY_SCORE = 0.55
     sources_text = ""
     if sources:
+        # Filter by minimum score, then take top N
+        display_sources = [s for s in sources if s['score'] >= MIN_DISPLAY_SCORE]
+        if not display_sources:
+            # If nothing passes threshold, show at least top 3
+            display_sources = sorted(sources, key=lambda s: s['score'], reverse=True)[:3]
+        display_sources = display_sources[:MAX_DISPLAY_SOURCES]
+
         sources_text = "\n\n---\n📋 **Fonti:**\n"
-        for s in sources:
+        for s in display_sources:
             page_str = f", pag. {s['page']}" if s['page'] else ""
             sources_text += f"- **{s['filename']}**{page_str} (rilevanza: {s['score']:.0%})\n"
+        if len(sources) > len(display_sources):
+            sources_text += f"- _...e altri {len(sources) - len(display_sources)} documenti consultati_\n"
 
     history.append({"role": "assistant", "content": response_text + sources_text})
     return history, ""

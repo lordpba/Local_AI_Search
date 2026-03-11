@@ -1,9 +1,11 @@
 """
 TextChunker — Splits text into overlapping chunks for embedding.
 Recursive character splitting with smart separators.
+Includes regex-based metadata extraction for structured data (codici fiscali, etc.).
 """
 
 import logging
+import re
 from dataclasses import dataclass
 
 from app.config import CHUNK_SIZE_CHARS, CHUNK_OVERLAP_CHARS
@@ -88,6 +90,43 @@ def _is_table(text: str) -> bool:
     return pipe_lines >= 3
 
 
+# ─── Structured metadata extraction ──────────────────────────────────────────
+
+# Italian codice fiscale: 6 letters + 2 digits + 1 letter + 2 digits + 1 letter + 3 digits + 1 letter
+_RE_CODICE_FISCALE = re.compile(r"\b[A-Z]{6}\d{2}[A-EHLMPR-T]\d{2}[A-Z]\d{3}[A-Z]\b")
+
+# Italian Partita IVA: 11 digits
+_RE_PARTITA_IVA = re.compile(r"\b\d{11}\b")
+
+# IBAN (Italian format: IT + 2 digits + letter + 5 digits + 5 digits + 12 alphanums)
+_RE_IBAN = re.compile(r"\bIT\s?\d{2}\s?[A-Z]\s?(?:\d{5}\s?){2}[\dA-Z]{12}\b", re.IGNORECASE)
+
+# Date patterns (dd/mm/yyyy, dd-mm-yyyy, dd.mm.yyyy)
+_RE_DATE = re.compile(r"\b\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4}\b")
+
+
+def _extract_structured_metadata(text: str) -> dict:
+    """
+    Extract structured data from text using regex.
+    Returns a dict of found entities to store as chunk metadata.
+    """
+    meta = {}
+
+    codici_fiscali = _RE_CODICE_FISCALE.findall(text)
+    if codici_fiscali:
+        meta["codici_fiscali"] = ",".join(set(codici_fiscali))
+
+    iban_matches = _RE_IBAN.findall(text)
+    if iban_matches:
+        meta["iban"] = ",".join(set(iban_matches))
+
+    dates = _RE_DATE.findall(text)
+    if dates:
+        meta["dates"] = ",".join(dates[:10])  # Cap to avoid huge metadata
+
+    return meta
+
+
 def chunk_documents(
     documents: list,
     chunk_size: int = CHUNK_SIZE_CHARS,
@@ -124,9 +163,10 @@ def chunk_documents(
 
         # Special handling for tables: keep them intact if possible
         if _is_table(text) and len(text) <= chunk_size * 1.5:
+            extracted = _extract_structured_metadata(text)
             all_chunks.append(TextChunk(
                 text=text,
-                metadata={**doc.metadata, "chunk_index": global_chunk_idx, "is_table": True}
+                metadata={**doc.metadata, "chunk_index": global_chunk_idx, "is_table": True, **extracted}
             ))
             global_chunk_idx += 1
             continue
@@ -136,9 +176,10 @@ def chunk_documents(
 
         for j, chunk_text in enumerate(text_chunks):
             if chunk_text.strip():
+                extracted = _extract_structured_metadata(chunk_text)
                 all_chunks.append(TextChunk(
                     text=chunk_text.strip(),
-                    metadata={**doc.metadata, "chunk_index": global_chunk_idx}
+                    metadata={**doc.metadata, "chunk_index": global_chunk_idx, **extracted}
                 ))
                 global_chunk_idx += 1
 

@@ -56,13 +56,17 @@ CHUNK_OVERLAP_CHARS = CHUNK_OVERLAP * 4  # ~512 chars
 
 # ─── Retrieval settings ───────────────────────────────────────────────────────
 
-TOP_K = 8                 # Number of chunks to retrieve
-SIMILARITY_THRESHOLD = 0.3  # Minimum similarity score (0-1)
+TOP_K = 12                # Chunks to retrieve for normal queries
+TOP_K_AGGREGATION = 50    # Chunks to retrieve for aggregation queries
+SIMILARITY_THRESHOLD = 0.25  # Minimum similarity score (0-1)
+RRF_K = 60                # Reciprocal Rank Fusion constant
+BM25_INDEX_FILE = DATA_DIR / "bm25_index.pkl"
 
 # ─── LLM settings ─────────────────────────────────────────────────────────────
 
 TEMPERATURE = 0.1         # Low temperature = less hallucination
-MAX_TOKENS = 2048         # Max response tokens
+MAX_TOKENS = 4096         # Max response tokens (normal)
+MAX_TOKENS_AGGREGATION = 8192  # Max response tokens (aggregation)
 
 # ─── Supported file types ─────────────────────────────────────────────────────
 
@@ -82,6 +86,10 @@ OCR_PROMPT = (
     "Extract ALL visible text from this image. "
     "Preserve the original structure including headers, paragraphs, lists, and tables. "
     "Output in clean markdown format. "
+    "IMPORTANT: Preserve ALL alphanumeric codes EXACTLY as they appear, character by character. "
+    "This includes: codici fiscali (e.g. RSSMRA80A01H501Z), IBAN, dates, protocol numbers, "
+    "document identifiers, and any other codes or identifiers. "
+    "Maintain key-value pairs from form fields (e.g. 'Codice Fiscale: RSSMRA80A01H501Z'). "
     "If handwritten text is present, transcribe it as accurately as possible. "
     "Do not add any commentary, only output the extracted text."
 )
