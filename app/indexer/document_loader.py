@@ -161,8 +161,9 @@ def extract_text_from_pdf(filepath: Path, min_text_length: int = 50) -> list[Doc
                     }
                 ))
             else:
-                # Page needs OCR — render as image
-                pix = page.get_pixmap(dpi=200)
+                # Page needs OCR — render as image at high DPI for handwriting
+                from app.config import PDF_OCR_DPI
+                pix = page.get_pixmap(dpi=PDF_OCR_DPI)
                 img_data = pix.tobytes("png")
                 pages_needing_ocr.append({
                     "page_num": page_num + 1,

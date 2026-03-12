@@ -15,14 +15,25 @@ PrivateSearch lets you search and chat with your personal documents using artifi
 
 ## 📋 Requirements
 
-| Component | Requirement |
+| Component | Minimum | Recommended |
+|---|---|---|
+| **OS** | Linux o Windows 10/11 | Linux (migliori performance GPU) |
+| **Docker** | Docker Desktop installato e in esecuzione | |
+| **Ollama** | Installato e in esecuzione ([ollama.com](https://ollama.com)) | |
+| **GPU NVIDIA** | 1× GPU con 12 GB VRAM (profilo Veloce) | 2× GPU con 12 GB VRAM ciascuna |
+| **RAM** | 16 GB | 32 GB |
+| **Spazio disco** | ~25 GB per i modelli AI | |
+
+### ⚠️ Note sulle GPU
+
+| Configurazione GPU | Cosa funziona |
 |---|---|
-| **OS** | Linux or Windows 10/11 |
-| **Docker** | Docker Desktop installed and running |
-| **Ollama** | Installed and running ([ollama.com](https://ollama.com)) |
-| **GPU** | NVIDIA/AMD with at least 6 GB VRAM (Fast profile) or 12 GB (Precise profile) |
-| **RAM** | 16 GB minimum (32 GB recommended for Precise profile) |
-| **Disk space** | ~20 GB for AI models |
+| **1× GPU 8 GB** (es. RTX 3060 8GB) | Solo profilo Veloce (gemma3:4b + gemma3:27b per OCR si alternano). Indicizzazione lenta. |
+| **1× GPU 12 GB** (es. RTX 3060 12GB) | Profilo Veloce. OCR con gemma3:27b carica/scarica dalla VRAM. |
+| **2× GPU 12 GB** (es. 2× RTX 3060) | **Configurazione ideale** — Profilo Massimo: `gemma3:27b` per tutto (OCR + Chat). Il modello si distribuisce su entrambe le GPU (~17 GB). |
+| **1× GPU 24 GB** (es. RTX 3090/4090) | Tutti i profili incluso Massimo. Massime prestazioni con un solo modello. |
+
+> **Profilo Massimo**: usa `gemma3:27b` (27B parametri, multimodale) sia per OCR che per Chat. Ollama deve caricare solo 2 modelli (bge-m3 + gemma3:27b) invece di 3, riducendo lo swap in VRAM e migliorando la velocità.
 
 ## 🚀 Quick Start
 
@@ -66,12 +77,22 @@ http://localhost:7860
 2. **📂 Documents** — Enter the path to your documents folder and click "Index"
 3. **💬 Chat** — Start asking questions!
 
-## 🎯 Profiles
+## 🎯 Profili
 
-| Profile | GPU | Model | Use case |
+| Profilo | GPU richiesta | Modello Chat | Modello OCR | Caso d'uso |
+|---|---|---|---|---|
+| ⚡ Veloce | 6–8 GB VRAM | gemma3:4b | gemma3:27b | Risposte rapide, buona qualità |
+| 🎯 Preciso | 12+ GB VRAM | gemma3:12b | gemma3:27b | Risposte più accurate e dettagliate |
+| 🚀 Massimo | 20+ GB VRAM | gemma3:27b | gemma3:27b | **Un solo modello per tutto** — massima qualità |
+
+### Modelli utilizzati
+
+| Modello | Ruolo | Dimensione | VRAM richiesta |
 |---|---|---|---|
-| ⚡ Fast | 6–8 GB VRAM | gemma3:4b | Quick answers, good quality |
-| 🎯 Precise | 12+ GB VRAM | gemma3:12b | More accurate and detailed answers |
+| `bge-m3` | Embeddings (ricerca semantica) | ~2 GB | ~2 GB |
+| `gemma3:27b` | OCR + Chat (profilo Massimo) | ~17 GB | ~17 GB (distribuibile su più GPU) |
+| `gemma3:4b` | Chat — profilo Veloce | ~3 GB | ~4 GB |
+| `gemma3:12b` | Chat — profilo Preciso | ~8 GB | ~10 GB |
 
 ## 📁 Supported Formats
 
@@ -89,23 +110,24 @@ http://localhost:7860
 │                                         │
 │  ┌─────────────┐   ┌─────────────────┐  │
 │  │   Ollama     │   │   Docker        │  │
-│  │  (on host)   │   │  Container      │  │
+│  │  (su host)   │   │  Container      │  │
 │  │              │   │                 │  │
-│  │ • deepseek-  │◄──│ • Gradio UI     │  │
-│  │   ocr        │   │ • ChromaDB      │  │
-│  │ • bge-m3     │   │ • Indexer       │  │
-│  │ • gemma3     │   │ • RAG Engine    │  │
+│  │ • gemma3:27b │◄──│ • Gradio UI     │  │
+│  │  (OCR+Chat)  │   │ • ChromaDB      │  │
+│  │ • bge-m3     │   │ • BM25 Index    │  │
+│  │  (embeddings)│   │ • RAG Engine    │  │
 │  │              │   │                 │  │
 │  │  GPU ←───────│   │ (no GPU needed) │  │
 │  └─────────────┘   └─────────────────┘  │
 │                                         │
-│  📂 Your documents (read-only access)   │
+│  📂 I tuoi documenti (accesso sola lettura) │
 └─────────────────────────────────────────┘
 ```
 
-- **Ollama** runs on the host and handles GPU access for OCR, embeddings, and chat LLM
-- **The Docker container** is lightweight (~500 MB), requires no GPU, and is cross-platform
-- **Your documents** are mounted read-only — the app never modifies your files
+- **Ollama** gira sull'host e gestisce l'accesso GPU per OCR, embeddings e chat LLM
+- **Il container Docker** è leggero (~500 MB), non richiede GPU ed è cross-platform
+- **I tuoi documenti** sono montati in sola lettura — l'app non modifica mai i tuoi file
+- **Ricerca ibrida**: semantica (ChromaDB + bge-m3) + keyword (BM25) con fusione RRF
 
 ## 🛑 Stop
 
@@ -140,4 +162,4 @@ docker compose -f docker/docker-compose.yml down -v
 
 ---
 
-*PrivateSearch v1.0 — Your data, your device, your privacy.*
+*PrivateSearch v1.0 — I tuoi dati, il tuo dispositivo, la tua privacy.*

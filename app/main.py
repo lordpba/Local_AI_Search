@@ -22,6 +22,7 @@ from app.config import (
     ALL_EXTENSIONS, GRADIO_HOST, GRADIO_PORT,
     APP_TITLE, APP_SUBTITLE, UserConfig, DATA_DIR,
     host_to_container_path, container_to_host_path, HOST_HOME_PATH,
+    set_ollama_host, get_ollama_host,
 )
 from app.indexer.document_loader import scan_folder, load_documents
 from app.indexer.ocr_engine import OCREngine
@@ -65,7 +66,8 @@ def init_components():
 def check_ollama_connection() -> tuple[bool, str]:
     """Check if Ollama is reachable."""
     try:
-        r = httpx.get(f"{OLLAMA_HOST}/api/tags", timeout=5.0)
+        host = get_ollama_host()
+        r = httpx.get(f"{host}/api/tags", timeout=5.0)
         r.raise_for_status()
         return True, "Connesso"
     except Exception as e:
@@ -75,7 +77,8 @@ def check_ollama_connection() -> tuple[bool, str]:
 def get_installed_models() -> list[str]:
     """Get list of models installed in Ollama."""
     try:
-        r = httpx.get(f"{OLLAMA_HOST}/api/tags", timeout=5.0)
+        host = get_ollama_host()
+        r = httpx.get(f"{host}/api/tags", timeout=5.0)
         r.raise_for_status()
         return [m["name"] for m in r.json().get("models", [])]
     except Exception:
@@ -98,7 +101,7 @@ def pull_model(model_name: str) -> Generator:
     try:
         with httpx.stream(
             "POST",
-            f"{OLLAMA_HOST}/api/pull",
+            f"{get_ollama_host()}/api/pull",
             json={"name": model_name, "stream": True},
             timeout=httpx.Timeout(connect=10.0, read=600.0, write=10.0, pool=10.0),
         ) as response:
@@ -185,6 +188,36 @@ def on_select_profile(profile_key: str):
     config.save()
     profile = PROFILES[profile_key]
     return f"Profilo selezionato: {profile['name']} ({profile['model']})"
+
+
+def on_change_ollama_url(url: str):
+    """Update the Ollama server URL and test connection."""
+    url = url.strip()
+    if not url:
+        # Reset to default
+        from app.config import _DEFAULT_OLLAMA_HOST
+        url = _DEFAULT_OLLAMA_HOST
+
+    # Normalize: ensure http(s):// prefix
+    if not url.startswith("http://") and not url.startswith("https://"):
+        url = "http://" + url
+
+    set_ollama_host(url)
+
+    # Save to config
+    config = UserConfig.load()
+    config.ollama_host = url
+    config.save()
+
+    # Re-initialize components with new URL
+    init_components()
+
+    # Test connection
+    connected, msg = check_ollama_connection()
+    if connected:
+        return f"✅ Connesso a {url}"
+    else:
+        return f"❌ {url} — {msg}"
 
 
 def on_check_folder(folder_path: str):
@@ -550,8 +583,9 @@ def create_app() -> gr.Blocks:
                 with gr.Row():
                     profile_radio = gr.Radio(
                         choices=[
-                            ("⚡ Veloce — GPU 6-8 GB, risposte rapide", "fast"),
-                            ("🎯 Preciso — GPU 12 GB+, risposte più accurate", "precise"),
+                            ("⚡ Veloce — GPU 4 GB, risposte rapide (qwen3.5:4b)", "fast"),
+                            ("🎯 Preciso — GPU 8 GB, risposte accurate (qwen3.5:9b)", "precise"),
+                            ("🚀 Massimo — 2× GPU 12 GB, un modello per tutto (qwen3.5:27b)", "maximum"),
                         ],
                         value=UserConfig.load().profile,
                         label="Seleziona il profilo adatto alla tua GPU",
@@ -564,9 +598,33 @@ def create_app() -> gr.Blocks:
                     max_lines=1,
                 )
 
+                gr.Markdown("### Server Ollama")
+                gr.Markdown(
+                    "Indirizzo del server Ollama. Lascia vuoto per usare localhost (predefinito). "
+                    "Puoi inserire un server remoto (es. `http://192.168.1.100:11434`)."
+                )
+                with gr.Row():
+                    with gr.Column(scale=2):
+                        _saved_cfg = UserConfig.load()
+                        ollama_url_input = gr.Textbox(
+                            label="URL server Ollama",
+                            value=_saved_cfg.ollama_host or get_ollama_host(),
+                            placeholder="http://localhost:11434",
+                            interactive=True,
+                            max_lines=1,
+                        )
+                    with gr.Column(scale=1):
+                        ollama_url_status = gr.Textbox(
+                            label="Stato connessione",
+                            interactive=False,
+                            max_lines=1,
+                        )
+
                 check_btn.click(fn=on_check_system, outputs=system_status)
                 download_btn.click(fn=on_download_models, outputs=system_status)
                 profile_radio.change(fn=on_select_profile, inputs=profile_radio, outputs=profile_status)
+                ollama_url_input.submit(fn=on_change_ollama_url, inputs=ollama_url_input, outputs=ollama_url_status)
+                ollama_url_input.blur(fn=on_change_ollama_url, inputs=ollama_url_input, outputs=ollama_url_status)
 
             # ═══════════════ TAB 2: DOCUMENTI ═══════════════════
             with gr.Tab("📂 Documenti", id="documents"):

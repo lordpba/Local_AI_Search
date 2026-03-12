@@ -161,18 +161,39 @@ def chunk_documents(
 
         text = doc.text.strip()
 
-        # Special handling for tables: keep them intact if possible
-        if _is_table(text) and len(text) <= chunk_size * 1.5:
+        # Prepend filename + page as header for better search & LLM context
+        filename = doc.metadata.get("filename", "")
+        page = doc.metadata.get("page", "")
+        header = f"--- Documento: {filename}"
+        if page:
+            header += f", pagina {page}"
+        header += " ---\n\n"
+        text_with_header = header + text
+
+        # OCR documents: keep entire page as single chunk (forms are structured,
+        # splitting loses field-value associations)
+        extraction = doc.metadata.get("extraction", "")
+        if extraction in ("ocr-vision", "native") and len(text_with_header) <= chunk_size * 2:
             extracted = _extract_structured_metadata(text)
             all_chunks.append(TextChunk(
-                text=text,
+                text=text_with_header,
+                metadata={**doc.metadata, "chunk_index": global_chunk_idx, **extracted}
+            ))
+            global_chunk_idx += 1
+            continue
+
+        # Special handling for tables: keep them intact if possible
+        if _is_table(text) and len(text_with_header) <= chunk_size * 1.5:
+            extracted = _extract_structured_metadata(text)
+            all_chunks.append(TextChunk(
+                text=text_with_header,
                 metadata={**doc.metadata, "chunk_index": global_chunk_idx, "is_table": True, **extracted}
             ))
             global_chunk_idx += 1
             continue
 
-        # Split text into chunks
-        text_chunks = _split_text(text, chunk_size, chunk_overlap)
+        # Split text into chunks (for very long documents)
+        text_chunks = _split_text(text_with_header, chunk_size, chunk_overlap)
 
         for j, chunk_text in enumerate(text_chunks):
             if chunk_text.strip():

@@ -14,20 +14,28 @@ logger = logging.getLogger(__name__)
 
 # ─── Aggregation intent detection ─────────────────────────────────────────────
 
-_AGGREGATION_PATTERNS = [
-    r"\btutti\b", r"\btutto\b", r"\belenca\b", r"\blista\b", r"\blistare\b",
-    r"\bogni\b", r"\bciascun[oa]?\b", r"\bquanti\b", r"\bquante\b",
-    r"\bcompleto\b", r"\bcompleta\b", r"\briepilogo\b", r"\bsommario\b",
-    r"\btotale\b", r"\btutte\b", r"\bognuno\b", r"\braccolta\b",
-    r"\ball\b", r"\bevery\b", r"\blist\b", r"\beach\b",
+# True aggregation: user explicitly wants an exhaustive list from ALL documents.
+# These require map-reduce because a single retrieval can't cover everything.
+# Pattern: must have a LISTING verb + a SCOPE word (tutti/ogni/ciascuno).
+_AGGREGATION_LISTING = [
+    r"\belenca\b", r"\blista\b", r"\blistare\b", r"\belencami\b",
+    r"\braccoglimi\b", r"\briepilogo\b", r"\bsommario\b",
+    r"\bfammi\s+(?:una?\s+)?lista\b", r"\blist\b",
 ]
-_AGGREGATION_RE = re.compile("|".join(_AGGREGATION_PATTERNS), re.IGNORECASE)
+_AGGREGATION_SCOPE = [
+    r"\btutti\b", r"\btutte\b", r"\btutto\b",
+    r"\bogni\b", r"\bciascun[oa]?\b", r"\bognuno\b",
+    r"\ball\b", r"\bevery\b", r"\beach\b",
+    r"\bcompleto\b", r"\bcompleta\b",
+]
+_LISTING_RE = re.compile("|".join(_AGGREGATION_LISTING), re.IGNORECASE)
+_SCOPE_RE = re.compile("|".join(_AGGREGATION_SCOPE), re.IGNORECASE)
 
 # Patterns that suggest structured data extraction
 _EXTRACTION_PATTERNS = [
     r"codic[ei]\s*fiscal[ei]", r"\biban\b", r"\bcf\b", r"\bp\.?\s*iva\b",
     r"partita\s*iva", r"\bnome\b.*\bcognome\b", r"\bindirizzo\b",
-    r"data\s*di\s*nascita", r"\bcomun[ei]\b", r"\bprovincia\b",
+    r"data\s*di\s*nascita",
 ]
 _EXTRACTION_RE = re.compile("|".join(_EXTRACTION_PATTERNS), re.IGNORECASE)
 
@@ -37,14 +45,23 @@ def detect_query_type(query: str) -> str:
     Classify query intent.
 
     Returns:
-        'aggregation' — user wants data from ALL documents (e.g. "elenca tutti i comuni")
+        'aggregation' — user wants exhaustive listing from ALL docs
+                        (e.g. "elenca tutti i comuni", "lista completa dei codici fiscali")
+                        Requires BOTH a listing verb AND a scope word.
         'extraction'  — user wants specific structured data (e.g. "codice fiscale")
-        'normal'      — standard Q&A
+                        Uses hybrid search with higher TOP_K.
+        'normal'      — standard Q&A, counting, searching
+                        (e.g. "quanti documenti parlano di X", "dove si trova Y")
     """
-    has_agg = bool(_AGGREGATION_RE.search(query))
+    has_listing = bool(_LISTING_RE.search(query))
+    has_scope = bool(_SCOPE_RE.search(query))
     has_ext = bool(_EXTRACTION_RE.search(query))
 
-    if has_agg:
+    # Aggregation only when user explicitly asks for exhaustive listing
+    if has_listing and has_scope:
+        return "aggregation"
+    # Also aggregation if scope + extraction (e.g. "tutti i codici fiscali")
+    if has_scope and has_ext:
         return "aggregation"
     if has_ext:
         return "extraction"

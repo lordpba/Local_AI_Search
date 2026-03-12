@@ -17,8 +17,12 @@ class Embedder:
     """Generate embeddings using bge-m3 via Ollama API."""
 
     def __init__(self):
-        self.api_url = f"{OLLAMA_HOST}/api/embed"
         self.model = EMBEDDING_MODEL
+
+    @property
+    def api_url(self) -> str:
+        from app.config import OLLAMA_HOST
+        return f"{OLLAMA_HOST}/api/embed"
 
     def embed_text(self, text: str) -> list[float]:
         """
@@ -113,6 +117,7 @@ class Embedder:
     def is_available(self) -> bool:
         """Check if embedding model is available on Ollama."""
         try:
+            from app.config import OLLAMA_HOST
             r = httpx.get(f"{OLLAMA_HOST}/api/tags", timeout=5.0)
             r.raise_for_status()
             models = [m["name"] for m in r.json().get("models", [])]

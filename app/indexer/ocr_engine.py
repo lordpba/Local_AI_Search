@@ -1,28 +1,62 @@
 """
-OCREngine — Extracts text from images using deepseek-ocr via Ollama API.
-Handles batch processing with caching to avoid re-processing.
+OCREngine — Extracts text from images using a vision model via Ollama API.
+Handles batch processing with caching and image preprocessing for better handwriting recognition.
 """
 
 import base64
+import io
 import json
 import hashlib
 import logging
 from pathlib import Path
 
 import httpx
+from PIL import Image, ImageEnhance, ImageFilter
 
 from app.config import OLLAMA_HOST, OCR_MODEL, OCR_PROMPT, OCR_CACHE_DIR
 
 logger = logging.getLogger(__name__)
 
 
+def _preprocess_image(image_data: bytes) -> bytes:
+    """
+    Preprocess image for better OCR on handwritten text.
+    Enhances contrast, sharpens, and converts to clean RGB.
+    """
+    try:
+        img = Image.open(io.BytesIO(image_data))
+
+        # Convert to grayscale for enhancement
+        gray = img.convert("L")
+
+        # Enhance contrast (helps faded handwriting ink)
+        gray = ImageEnhance.Contrast(gray).enhance(1.6)
+
+        # Sharpen (helps blurry scans)
+        gray = gray.filter(ImageFilter.SHARPEN)
+
+        # Back to RGB (vision models expect color input)
+        img = gray.convert("RGB")
+
+        buf = io.BytesIO()
+        img.save(buf, format="PNG", optimize=True)
+        return buf.getvalue()
+    except Exception as e:
+        logger.warning(f"Image preprocessing failed, using original: {e}")
+        return image_data
+
+
 class OCREngine:
-    """OCR via deepseek-ocr model on Ollama."""
+    """OCR via vision model on Ollama."""
 
     def __init__(self):
-        self.api_url = f"{OLLAMA_HOST}/api/chat"
         self.cache_dir = OCR_CACHE_DIR
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+    @property
+    def api_url(self) -> str:
+        from app.config import OLLAMA_HOST
+        return f"{OLLAMA_HOST}/api/chat"
 
     def _cache_key(self, image_data: bytes) -> str:
         return hashlib.sha256(image_data).hexdigest()
@@ -45,7 +79,7 @@ class OCREngine:
 
     def ocr_image(self, image_data: bytes, metadata: dict | None = None) -> str:
         """
-        Extract text from a single image using deepseek-ocr via Ollama.
+        Extract text from a single image using vision model via Ollama.
 
         Args:
             image_data: Raw image bytes (PNG/JPG)
@@ -62,8 +96,11 @@ class OCREngine:
             logger.debug(f"OCR cache hit: {cache_key[:12]}...")
             return cached
 
+        # Preprocess image for better handwriting recognition
+        processed = _preprocess_image(image_data)
+
         # Encode image to base64
-        img_b64 = base64.b64encode(image_data).decode("utf-8")
+        img_b64 = base64.b64encode(processed).decode("utf-8")
 
         # Call Ollama API
         payload = {
@@ -86,7 +123,7 @@ class OCREngine:
             response = httpx.post(
                 self.api_url,
                 json=payload,
-                timeout=120.0,  # OCR can be slow on large images
+                timeout=300.0,  # Vision models need more time on large images
             )
             response.raise_for_status()
             result = response.json()
@@ -156,7 +193,7 @@ class OCREngine:
                         "filename": item["filename"],
                         "file_type": "ocr",
                         "page": item["page_num"],
-                        "extraction": "deepseek-ocr",
+                        "extraction": "ocr-vision",
                     }
                 ))
             else:
@@ -170,8 +207,9 @@ class OCREngine:
         return documents
 
     def is_available(self) -> bool:
-        """Check if Ollama and deepseek-ocr model are available."""
+        """Check if Ollama and OCR vision model are available."""
         try:
+            from app.config import OLLAMA_HOST
             r = httpx.get(f"{OLLAMA_HOST}/api/tags", timeout=5.0)
             r.raise_for_status()
             models = [m["name"] for m in r.json().get("models", [])]

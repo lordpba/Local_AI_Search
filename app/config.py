@@ -24,27 +24,51 @@ MANIFEST_FILE = DATA_DIR / "index_manifest.json"
 # reach the Ollama instance running on the host. Outside Docker, localhost is
 # still the sensible default.
 
-OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+_DEFAULT_OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+
+# Mutable runtime value — updated by UserConfig.load()
+OLLAMA_HOST = _DEFAULT_OLLAMA_HOST
+
+
+def get_ollama_host() -> str:
+    """Return the current Ollama host URL."""
+    return OLLAMA_HOST
+
+
+def set_ollama_host(url: str):
+    """Update the Ollama host URL at runtime."""
+    global OLLAMA_HOST
+    OLLAMA_HOST = url.rstrip("/")
 
 # ─── Model definitions ───────────────────────────────────────────────────────
 
-OCR_MODEL = "deepseek-ocr:latest"
+# Unified model: qwen3.5:27b handles BOTH chat and OCR (multimodal)
+UNIFIED_MODEL = "qwen3.5:27b"
 EMBEDDING_MODEL = "bge-m3"
 EMBEDDING_DIM = 1024  # bge-m3 output dimension
+
+# Legacy alias for OCR (points to unified model)
+OCR_MODEL = UNIFIED_MODEL
 
 # Chat model profiles
 PROFILES = {
     "fast": {
         "name": "⚡ Veloce",
-        "description": "GPU 6-8 GB · Risposte rapide",
-        "model": "gemma3:4b",
-        "gpu_min_gb": 6,
+        "description": "GPU 4 GB · Risposte rapide",
+        "model": "qwen3.5:4b",
+        "gpu_min_gb": 4,
     },
     "precise": {
         "name": "🎯 Preciso",
-        "description": "GPU 12 GB+ · Risposte più accurate",
-        "model": "gemma3:12b",
-        "gpu_min_gb": 12,
+        "description": "GPU 8 GB · Risposte accurate",
+        "model": "qwen3.5:9b",
+        "gpu_min_gb": 8,
+    },
+    "maximum": {
+        "name": "🚀 Massimo",
+        "description": "2× GPU 12 GB · Un solo modello per tutto (OCR + Chat)",
+        "model": "qwen3.5:27b",
+        "gpu_min_gb": 20,
     },
 }
 
@@ -84,19 +108,27 @@ for exts in SUPPORTED_EXTENSIONS.values():
 # ─── OCR settings ─────────────────────────────────────────────────────────────
 
 OCR_PROMPT = (
-    "Extract ALL visible text from this image. "
-    "Preserve the original structure including headers, paragraphs, lists, and tables. "
-    "Output in clean markdown format. "
-    "IMPORTANT: Preserve ALL alphanumeric codes EXACTLY as they appear, character by character. "
-    "This includes: codici fiscali (e.g. RSSMRA80A01H501Z), IBAN, dates, protocol numbers, "
-    "document identifiers, and any other codes or identifiers. "
-    "Maintain key-value pairs from form fields (e.g. 'Codice Fiscale: RSSMRA80A01H501Z'). "
-    "If handwritten text is present, transcribe it as accurately as possible. "
-    "Do not add any commentary, only output the extracted text."
+    "Sei un sistema OCR specializzato per moduli e documenti ufficiali italiani.\n"
+    "Questa immagine contiene un modulo/documento che può avere sia testo stampato che TESTO SCRITTO A MANO.\n\n"
+    "ISTRUZIONI:\n"
+    "1. Trascrivi TUTTO il testo visibile, sia stampato che manoscritto.\n"
+    "2. Per il testo manoscritto: leggi con estrema attenzione ogni singola lettera e cifra. "
+    "I nomi propri (nome, cognome) e i codici fiscali sono PARTICOLARMENTE IMPORTANTI.\n"
+    "3. Mantieni la struttura del documento con i campi nel formato 'CAMPO: valore'.\n"
+    "4. I codici fiscali italiani hanno 16 caratteri alfanumerici (es. RSSMRA80A01H501Z): "
+    "trascrivili ESATTAMENTE.\n"
+    "5. Trascrivi numeri di telefono, email, PEC, IBAN, partite IVA, date e protocolli "
+    "esattamente come appaiono.\n"
+    "6. Se una parola manoscritta è incerta, scrivi la tua migliore lettura.\n"
+    "7. NON aggiungere commenti, spiegazioni o note. Solo il testo estratto.\n"
+    "8. NON usare markdown. Usa testo semplice."
 )
 
 # Minimum text length from PDF native extraction to skip OCR
 PDF_MIN_TEXT_LENGTH = 50
+
+# PDF render DPI for OCR (300 = standard for handwritten text)
+PDF_OCR_DPI = 300
 
 # ─── Gradio settings ──────────────────────────────────────────────────────────
 
@@ -142,6 +174,7 @@ class UserConfig:
     """Persisted user configuration."""
     profile: str = "fast"
     folder_path: str = ""
+    ollama_host: str = ""
     first_run_done: bool = False
     models_downloaded: bool = False
 
@@ -156,10 +189,15 @@ class UserConfig:
             try:
                 with open(CONFIG_FILE, "r") as f:
                     data = json.load(f)
-                return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+                cfg = cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
             except (json.JSONDecodeError, TypeError):
-                pass
-        return cls()
+                cfg = cls()
+        else:
+            cfg = cls()
+        # Apply saved Ollama host if present
+        if cfg.ollama_host:
+            set_ollama_host(cfg.ollama_host)
+        return cfg
 
     @property
     def chat_model(self) -> str:
@@ -167,4 +205,5 @@ class UserConfig:
 
     @property
     def required_models(self) -> list[str]:
-        return [OCR_MODEL, EMBEDDING_MODEL, self.chat_model]
+        models = {EMBEDDING_MODEL, OCR_MODEL, self.chat_model}
+        return sorted(models)

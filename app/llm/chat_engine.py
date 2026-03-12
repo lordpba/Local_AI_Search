@@ -29,8 +29,12 @@ class ChatEngine:
 
     def __init__(self, retriever: Retriever):
         self.retriever = retriever
-        self.api_url = f"{OLLAMA_HOST}/api/chat"
         self.chat_history: list[dict] = []
+
+    @property
+    def api_url(self) -> str:
+        from app.config import OLLAMA_HOST
+        return f"{OLLAMA_HOST}/api/chat"
 
     @property
     def model(self) -> str:
@@ -307,6 +311,7 @@ class ChatEngine:
     def is_model_available(self) -> bool:
         """Check if the configured chat model is available on Ollama."""
         try:
+            from app.config import OLLAMA_HOST
             r = httpx.get(f"{OLLAMA_HOST}/api/tags", timeout=5.0)
             r.raise_for_status()
             models = [m["name"] for m in r.json().get("models", [])]
