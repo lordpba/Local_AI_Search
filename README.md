@@ -6,34 +6,51 @@ PrivateSearch lets you search and chat with your personal documents using artifi
 
 ## ✨ Features
 
-- 🔍 **Semantic search** — find documents by meaning, not just keywords
-- 🤖 **Chat with your documents** — ask questions in natural language
+- 🔍 **Hybrid search** — semantic search (ChromaDB + bge-m3) combined with keyword search (BM25), fused via Reciprocal Rank Fusion (RRF)
+- 🤖 **Chat with your documents** — ask questions in natural language, get cited answers
 - 📄 **Multi-format support** — PDF, DOCX, TXT, CSV, images (JPG, PNG, TIFF…)
-- 👁️ **Intelligent OCR** — extracts text from images and scanned documents via multimodal LLM
+- 👁️ **Intelligent OCR** — extracts text from images and scanned PDFs via multimodal LLM (handwriting-aware)
+- 🧠 **Unified model family** — Qwen3.5 for everything: chat, OCR and reasoning, with 3 size profiles
 - 🔄 **Incremental updates** — automatically detects new, modified, or deleted files
+- 🖥️ **Cross-platform** — works on Linux and Windows (Docker + Ollama)
 - 🛡️ **100% offline** — no internet connection required after initial setup
 
 ## 📋 Requirements
 
 | Component | Minimum | Recommended |
 |---|---|---|
-| **OS** | Linux o Windows 10/11 | Linux (migliori performance GPU) |
-| **Docker** | Docker Desktop installato e in esecuzione | |
-| **Ollama** | Installato e in esecuzione ([ollama.com](https://ollama.com)) | |
-| **GPU NVIDIA** | 1× GPU con 12 GB VRAM (profilo Veloce) | 2× GPU con 12 GB VRAM ciascuna |
+| **OS** | Linux or Windows 10/11 | Linux (best GPU performance) |
+| **Docker** | Docker Desktop installed and running | |
+| **Ollama** | Installed and running ([ollama.com](https://ollama.com)) | |
+| **NVIDIA GPU** | 1× GPU with 6 GB VRAM (Fast profile) | 2× GPUs with 12 GB VRAM each |
 | **RAM** | 16 GB | 32 GB |
-| **Spazio disco** | ~25 GB per i modelli AI | |
+| **Disk space** | ~25 GB for AI models | |
 
-### ⚠️ Note sulle GPU
+## 🧠 Why Qwen3.5 (Unified Model)
 
-| Configurazione GPU | Cosa funziona |
+PrivateSearch uses the **Qwen3.5** family as a unified model for all operations:
+
+- **Chat & RAG** — answers questions based on indexed documents
+- **Multimodal OCR** — reads images and scanned PDFs, including handwritten text
+- **Reasoning** — understands complex queries and aggregates information from multiple sources
+
+This "one model for everything" approach brings real advantages:
+
+| Advantage | Detail |
 |---|---|
-| **1× GPU 8 GB** (es. RTX 3060 8GB) | Solo profilo Veloce (gemma3:4b + gemma3:27b per OCR si alternano). Indicizzazione lenta. |
-| **1× GPU 12 GB** (es. RTX 3060 12GB) | Profilo Veloce. OCR con gemma3:27b carica/scarica dalla VRAM. |
-| **2× GPU 12 GB** (es. 2× RTX 3060) | **Configurazione ideale** — Profilo Massimo: `gemma3:27b` per tutto (OCR + Chat). Il modello si distribuisce su entrambe le GPU (~17 GB). |
-| **1× GPU 24 GB** (es. RTX 3090/4090) | Tutti i profili incluso Massimo. Massime prestazioni con un solo modello. |
+| **Less GPU swapping** | Ollama loads only 2 models (bge-m3 + qwen3.5) instead of 3 separate ones |
+| **Consistent OCR + Chat** | The same model that reads the document answers your questions |
+| **Scalable profiles** | Same model in 3 sizes: 4B, 9B, 27B — choose based on your GPU |
+| **Multilingual** | Qwen3.5 excels in English, Italian, and many other languages |
 
-> **Profilo Massimo**: usa `gemma3:27b` (27B parametri, multimodale) sia per OCR che per Chat. Ollama deve caricare solo 2 modelli (bge-m3 + gemma3:27b) invece di 3, riducendo lo swap in VRAM e migliorando la velocità.
+### ⚠️ GPU Notes
+
+| GPU Configuration | Recommended profile |
+|---|---|
+| **1× GPU 6–8 GB** (e.g. RTX 3060 8GB) | ⚡ Fast (qwen3.5:4b) — quick answers, good quality |
+| **1× GPU 12 GB** (e.g. RTX 3060 12GB) | 🎯 Precise (qwen3.5:9b) — accurate and detailed answers |
+| **2× GPU 12 GB** (e.g. 2× RTX 3060) | 🚀 Maximum (qwen3.5:27b) — highest quality, model is distributed across both GPUs |
+| **1× GPU 24 GB** (e.g. RTX 3090/4090) | 🚀 Maximum (qwen3.5:27b) — top performance with a single GPU |
 
 ## 🚀 Quick Start
 
@@ -73,26 +90,30 @@ http://localhost:7860
 
 ### 3. In-app setup
 
-1. **⚙️ Setup** — Click "Check system", then "Download models" (~15 GB, first time only)
-2. **📂 Documents** — Enter the path to your documents folder and click "Index"
+1. **⚙️ Setup** — Click "Check system", then "Download models" (~25 GB, first time only)
+2. **📂 Documents** — Enter the path to your documents folder (Linux or Windows format) and click "Check", then "Index documents"
 3. **💬 Chat** — Start asking questions!
 
-## 🎯 Profili
+## 🎯 Profiles
 
-| Profilo | GPU richiesta | Modello Chat | Modello OCR | Caso d'uso |
+All profiles use **Qwen3.5** — same model, different sizes:
+
+| Profile | Required GPU | Model (Chat + OCR) | Size | Use case |
 |---|---|---|---|---|
-| ⚡ Veloce | 6–8 GB VRAM | gemma3:4b | gemma3:27b | Risposte rapide, buona qualità |
-| 🎯 Preciso | 12+ GB VRAM | gemma3:12b | gemma3:27b | Risposte più accurate e dettagliate |
-| 🚀 Massimo | 20+ GB VRAM | gemma3:27b | gemma3:27b | **Un solo modello per tutto** — massima qualità |
+| ⚡ Fast | 4–6 GB VRAM | `qwen3.5:4b` | ~3.4 GB | Quick answers, good quality |
+| 🎯 Precise | 8–10 GB VRAM | `qwen3.5:9b` | ~6.6 GB | Accurate and detailed answers |
+| 🚀 Maximum | 20+ GB VRAM | `qwen3.5:27b` | ~17 GB | **One model for everything** — highest quality |
 
-### Modelli utilizzati
+> With the **Maximum** profile, the same `qwen3.5:27b` handles both OCR and Chat. Ollama loads only 2 models in VRAM (bge-m3 + qwen3.5:27b), eliminating swapping and greatly improving speed.
 
-| Modello | Ruolo | Dimensione | VRAM richiesta |
+### Models used
+
+| Model | Role | Size | Notes |
 |---|---|---|---|
-| `bge-m3` | Embeddings (ricerca semantica) | ~2 GB | ~2 GB |
-| `gemma3:27b` | OCR + Chat (profilo Massimo) | ~17 GB | ~17 GB (distribuibile su più GPU) |
-| `gemma3:4b` | Chat — profilo Veloce | ~3 GB | ~4 GB |
-| `gemma3:12b` | Chat — profilo Preciso | ~8 GB | ~10 GB |
+| `bge-m3` | Embeddings (semantic search) | ~2 GB | Always loaded, 1024 dimensions |
+| `qwen3.5:4b` | Chat + OCR — Fast profile | ~3.4 GB | Multimodal (text + images) |
+| `qwen3.5:9b` | Chat + OCR — Precise profile | ~6.6 GB | Multimodal (text + images) |
+| `qwen3.5:27b` | Chat + OCR — Maximum profile | ~17 GB | Multimodal, can be distributed across multiple GPUs |
 
 ## 📁 Supported Formats
 
@@ -110,24 +131,54 @@ http://localhost:7860
 │                                         │
 │  ┌─────────────┐   ┌─────────────────┐  │
 │  │   Ollama     │   │   Docker        │  │
-│  │  (su host)   │   │  Container      │  │
+│  │  (on host)   │   │  Container      │  │
 │  │              │   │                 │  │
-│  │ • gemma3:27b │◄──│ • Gradio UI     │  │
-│  │  (OCR+Chat)  │   │ • ChromaDB      │  │
+│  │ • qwen3.5    │◄──│ • Gradio UI     │  │
+│  │  (Chat+OCR)  │   │ • ChromaDB      │  │
 │  │ • bge-m3     │   │ • BM25 Index    │  │
 │  │  (embeddings)│   │ • RAG Engine    │  │
-│  │              │   │                 │  │
+│  │              │   │ • RRF Fusion    │  │
 │  │  GPU ←───────│   │ (no GPU needed) │  │
 │  └─────────────┘   └─────────────────┘  │
 │                                         │
-│  📂 I tuoi documenti (accesso sola lettura) │
+│  📂 Your documents (read-only access)    │
 └─────────────────────────────────────────┘
 ```
 
-- **Ollama** gira sull'host e gestisce l'accesso GPU per OCR, embeddings e chat LLM
-- **Il container Docker** è leggero (~500 MB), non richiede GPU ed è cross-platform
-- **I tuoi documenti** sono montati in sola lettura — l'app non modifica mai i tuoi file
-- **Ricerca ibrida**: semantica (ChromaDB + bge-m3) + keyword (BM25) con fusione RRF
+### Search pipeline
+
+```
+User query
+    │
+    ├─► Semantic Search (ChromaDB + bge-m3)  ─┐
+    │                                          ├─► RRF Fusion ─► Top-K chunks ─► LLM (qwen3.5)
+    └─► Keyword Search (BM25)                ─┘
+```
+
+- **Ollama** runs on the host and manages GPU access for OCR, embeddings, and chat LLM
+- **The Docker container** is lightweight (~500 MB), requires no GPU, and is cross-platform (Linux/Windows)
+- **Your documents** are mounted read-only — the app never modifies your files
+- **Hybrid search**: semantic (ChromaDB + bge-m3) + keyword (BM25) with RRF fusion (k=60)
+- **Map-Reduce**: for aggregation queries ("list all…"), iterates all files in batches of 5
+
+### Smart OCR
+
+OCR uses the same Qwen3.5 model as the active profile, with:
+
+- **Image pre-processing**: grayscale conversion → contrast (1.6×) → sharpening
+- **PDF at 300 DPI**: high-res rendering to capture handwritten text
+- **Italian OCR prompt**: optimized for government forms, tax codes, dates, IBANs
+- **Persistent cache**: each page is processed only once and saved to disk
+
+## 🌐 Cross-platform: Linux + Windows
+
+PrivateSearch works on both operating systems:
+
+- **Document paths**: you can enter either `/home/mario/Documents` (Linux) or `C:\Users\mario\Documents` (Windows) — normalization is automatic
+- **Docker networking**: uses bridge network + `host.docker.internal` to reach Ollama on the host, compatible with Docker Desktop (Windows) and Docker Engine (Linux)
+- **Remote Ollama**: you can configure a remote Ollama server (e.g. `http://192.168.1.100:11434`) from the Config tab
+
+> **Windows note**: Ollama must listen on `0.0.0.0` (not just `127.0.0.1`) to be reachable from the Docker container.
 
 ## 🛑 Stop
 
@@ -147,7 +198,7 @@ docker logs privatesearch -f
 
 # Rebuild after code changes
 docker compose -f docker/docker-compose.yml up -d --build
-
+```
 # Delete all data (index, cache, config)
 docker compose -f docker/docker-compose.yml down -v
 ```
