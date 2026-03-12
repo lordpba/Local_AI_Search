@@ -730,8 +730,8 @@ def create_app() -> gr.Blocks:
             """
         )
 
-    # Auto-check system status every time the page is loaded/refreshed
-    app.load(fn=on_check_system, outputs=system_status)
+        # Auto-check system status every time the page is loaded/refreshed
+        app.load(fn=on_check_system, outputs=system_status)
 
     return app
 
