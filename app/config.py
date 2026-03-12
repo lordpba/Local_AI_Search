@@ -20,8 +20,9 @@ CONFIG_FILE = DATA_DIR / "config.json"
 MANIFEST_FILE = DATA_DIR / "index_manifest.json"
 
 # ─── Ollama connection ────────────────────────────────────────────────────────
-# With network_mode: host, the container shares the host's network stack,
-# so Ollama is reachable at localhost:11434 (its default bind address).
+# In Docker we usually point this to host.docker.internal so the container can
+# reach the Ollama instance running on the host. Outside Docker, localhost is
+# still the sensible default.
 
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 
@@ -116,8 +117,8 @@ def host_to_container_path(host_path: str) -> str:
     """Translate a host filesystem path to the container-mapped path."""
     if not HOST_HOME_PATH:
         return host_path  # Not in Docker or no mapping
-    hp = host_path.rstrip("/")
-    home = HOST_HOME_PATH.rstrip("/")
+    hp = host_path.replace("\\", "/").rstrip("/")
+    home = HOST_HOME_PATH.replace("\\", "/").rstrip("/")
     if hp.startswith(home):
         return CONTAINER_HOME_MOUNT + hp[len(home):]
     return host_path  # Path outside HOME — can't translate
@@ -127,7 +128,7 @@ def container_to_host_path(container_path: str) -> str:
     """Translate a container-mapped path back to the host path (for display)."""
     if not HOST_HOME_PATH:
         return container_path
-    cp = container_path.rstrip("/")
+    cp = container_path.replace("\\", "/").rstrip("/")
     mount = CONTAINER_HOME_MOUNT.rstrip("/")
     if cp.startswith(mount):
         return HOST_HOME_PATH.rstrip("/") + cp[len(mount):]

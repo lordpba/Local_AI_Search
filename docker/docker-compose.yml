@@ -11,20 +11,23 @@ services:
     container_name: privatesearch
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"
-    # Use host network so the container can reach Ollama on localhost:11434
-    # without requiring any Ollama reconfiguration (keeps default 127.0.0.1 bind).
-    # Port 7860 is exposed directly on the host.
-    network_mode: host
+    # Cross-platform networking:
+    # - expose Gradio on localhost:7860
+    # - reach Ollama on the host via host.docker.internal
+    ports:
+      - "7860:7860"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       # Persistent data: vector store, OCR cache, config
       - privatesearch-data:/data
       # Mount entire home directory read-only so user can browse any folder
       # The app only reads files, never writes to the documents folder
-      - ${HOME:-/home}:/host-home:ro
+      - "${HOST_HOME_PATH:-/home}:/host-home:ro"
     environment:
-      - OLLAMA_HOST=http://localhost:11434
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
       - PRIVATESEARCH_DATA=/data
-      - HOST_HOME_PATH=${HOME:-/home}
+      - HOST_HOME_PATH=${HOST_HOME_PATH:-/home}
       - PYTHONUNBUFFERED=1
     healthcheck:
       test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:7860/', timeout=5)"]

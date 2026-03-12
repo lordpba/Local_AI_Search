@@ -58,6 +58,8 @@ fi
 # ─── Generate .env for Docker Compose ─────────────────────
 echo "PUID=$(id -u)" > "$ENV_FILE"
 echo "PGID=$(id -g)" >> "$ENV_FILE"
+echo "HOST_HOME_PATH=$HOME" >> "$ENV_FILE"
+echo "OLLAMA_HOST=http://host.docker.internal:11434" >> "$ENV_FILE"
 echo -e "  ✅ UID/GID: $(id -u):$(id -g)"
 
 # ─── Build & Start ────────────────────────────────────────

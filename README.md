@@ -50,9 +50,15 @@ Double-click start.bat
 
 The launcher script will:
 1. Check that Docker and Ollama are running
-2. Configure Ollama for Docker access (requires `sudo` once on Linux)
+2. Configure Docker so the container can reach Ollama on the host
 3. Build and start the container
 4. Open the browser at http://localhost:7860
+
+If the browser does not open automatically, visit:
+
+```text
+http://localhost:7860
+```
 
 ### 3. In-app setup
 

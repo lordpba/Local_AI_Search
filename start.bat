@@ -53,16 +53,13 @@ if "%OLLAMA_OK%"=="0" (
     echo     Continuo l'avvio...
 )
 
-REM ─── Configure Ollama for Docker access ────────────────
-REM On Windows, Ollama typically already listens on 0.0.0.0
-REM If needed, set OLLAMA_HOST=0.0.0.0 in system environment variables
-REM and restart Ollama.
-
 REM ─── Generate .env ──────────────────────────────────────
 REM On Windows Docker Desktop, file permissions work differently.
 REM We don't need PUID/PGID — containers run with the correct user.
 echo PUID=1000> "%~dp0docker\.env"
 echo PGID=1000>> "%~dp0docker\.env"
+echo HOST_HOME_PATH=%USERPROFILE:\=/%>> "%~dp0docker\.env"
+echo OLLAMA_HOST=http://host.docker.internal:11434>> "%~dp0docker\.env"
 
 REM ─── Build & Start ──────────────────────────────────────
 echo.
