@@ -145,11 +145,15 @@ CONTAINER_HOME_MOUNT = "/host-home"
 
 
 def host_to_container_path(host_path: str) -> str:
-    """Translate a host filesystem path to the container-mapped path."""
+    """Translate a host filesystem path to the container-mapped path.
+
+    Handles both Linux (/) and Windows (\\) path separators.
+    """
     if not HOST_HOME_PATH:
         return host_path  # Not in Docker or no mapping
-    hp = host_path.rstrip("/")
-    home = HOST_HOME_PATH.rstrip("/")
+    # Normalize Windows backslashes to forward slashes
+    hp = host_path.replace("\\", "/").rstrip("/")
+    home = HOST_HOME_PATH.replace("\\", "/").rstrip("/")
     if hp.startswith(home):
         return CONTAINER_HOME_MOUNT + hp[len(home):]
     return host_path  # Path outside HOME — can't translate

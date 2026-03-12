@@ -21,7 +21,7 @@ from app.config import (
     OLLAMA_HOST, EMBEDDING_MODEL, PROFILES,
     ALL_EXTENSIONS, GRADIO_HOST, GRADIO_PORT,
     APP_TITLE, APP_SUBTITLE, UserConfig, DATA_DIR,
-    host_to_container_path, container_to_host_path, HOST_HOME_PATH,
+    host_to_container_path, container_to_host_path,
     set_ollama_host, get_ollama_host, get_active_model,
 )
 from app.indexer.document_loader import scan_folder, load_documents
@@ -630,13 +630,14 @@ def create_app() -> gr.Blocks:
             with gr.Tab("📂 Documenti", id="documents"):
                 gr.Markdown("### Cartella documenti")
                 gr.Markdown(
-                    "Inserisci il percorso della cartella contenente i documenti da indicizzare."
+                    "Inserisci il percorso completo della cartella contenente i documenti da indicizzare. "
+                    "Funziona sia con percorsi Linux (`/home/mario/Documenti`) che Windows (`C:\\Users\\mario\\Documents`)."
                 )
 
                 with gr.Row():
                     folder_input = gr.Textbox(
                         label="Percorso cartella",
-                        placeholder="/percorso/alla/cartella/documenti",
+                        placeholder="/home/mario/Documenti  oppure  C:\\Users\\mario\\Documents",
                         value=UserConfig.load().folder_path,
                         scale=3,
                     )
