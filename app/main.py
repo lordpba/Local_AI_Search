@@ -18,11 +18,11 @@ import gradio as gr
 import httpx
 
 from app.config import (
-    OLLAMA_HOST, OCR_MODEL, EMBEDDING_MODEL, PROFILES,
+    OLLAMA_HOST, EMBEDDING_MODEL, PROFILES,
     ALL_EXTENSIONS, GRADIO_HOST, GRADIO_PORT,
     APP_TITLE, APP_SUBTITLE, UserConfig, DATA_DIR,
     host_to_container_path, container_to_host_path, HOST_HOME_PATH,
-    set_ollama_host, get_ollama_host,
+    set_ollama_host, get_ollama_host, get_active_model,
 )
 from app.indexer.document_loader import scan_folder, load_documents
 from app.indexer.ocr_engine import OCREngine
@@ -583,8 +583,8 @@ def create_app() -> gr.Blocks:
                 with gr.Row():
                     profile_radio = gr.Radio(
                         choices=[
-                            ("⚡ Veloce — GPU 6-8 GB, risposte rapide (qwen3.5:9b)", "fast"),
-                            ("🎯 Preciso — GPU 12 GB+, risposte più accurate (gemma3:12b)", "precise"),
+                            ("⚡ Veloce — GPU 4 GB, risposte rapide (qwen3.5:4b)", "fast"),
+                            ("🎯 Preciso — GPU 8 GB, risposte accurate (qwen3.5:9b)", "precise"),
                             ("🚀 Massimo — 2× GPU 12 GB, un modello per tutto (qwen3.5:27b)", "maximum"),
                         ],
                         value=UserConfig.load().profile,

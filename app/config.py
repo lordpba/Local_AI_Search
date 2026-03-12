@@ -41,27 +41,27 @@ def set_ollama_host(url: str):
 
 # ─── Model definitions ───────────────────────────────────────────────────────
 
-# Unified model: qwen3.5:27b handles BOTH chat and OCR (multimodal)
-UNIFIED_MODEL = "qwen3.5:27b"
+# Unified model family: qwen3.5 handles BOTH chat and OCR (multimodal)
+# The actual model size depends on the selected profile
 EMBEDDING_MODEL = "bge-m3"
 EMBEDDING_DIM = 1024  # bge-m3 output dimension
 
-# Legacy alias for OCR (points to unified model)
-OCR_MODEL = UNIFIED_MODEL
+# Legacy constant — use get_active_model() for profile-aware access
+OCR_MODEL = "qwen3.5:27b"
 
-# Chat model profiles
+# Chat model profiles — all qwen3.5 (unified vision + language)
 PROFILES = {
     "fast": {
         "name": "⚡ Veloce",
-        "description": "GPU 6-8 GB · Risposte rapide",
-        "model": "qwen3.5:9b",
-        "gpu_min_gb": 6,
+        "description": "GPU 4 GB · Risposte rapide",
+        "model": "qwen3.5:4b",
+        "gpu_min_gb": 4,
     },
     "precise": {
         "name": "🎯 Preciso",
-        "description": "GPU 12 GB+ · Risposte più accurate",
-        "model": "gemma3:12b",
-        "gpu_min_gb": 12,
+        "description": "GPU 8 GB · Risposte accurate",
+        "model": "qwen3.5:9b",
+        "gpu_min_gb": 8,
     },
     "maximum": {
         "name": "🚀 Massimo",
@@ -204,5 +204,13 @@ class UserConfig:
 
     @property
     def required_models(self) -> list[str]:
-        models = {EMBEDDING_MODEL, OCR_MODEL, self.chat_model}
+        """Embedding + the profile's unified model (chat & OCR are the same)."""
+        models = {EMBEDDING_MODEL, self.chat_model}
         return sorted(models)
+
+
+def get_active_model() -> str:
+    """Get the active qwen3.5 model for the current profile.
+    Since qwen3.5 is unified (vision + language), this is used for BOTH chat and OCR."""
+    config = UserConfig.load()
+    return config.chat_model

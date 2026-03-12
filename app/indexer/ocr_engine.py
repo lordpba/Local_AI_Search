@@ -13,7 +13,7 @@ from pathlib import Path
 import httpx
 from PIL import Image, ImageEnhance, ImageFilter
 
-from app.config import OLLAMA_HOST, OCR_MODEL, OCR_PROMPT, OCR_CACHE_DIR
+from app.config import OLLAMA_HOST, OCR_PROMPT, OCR_CACHE_DIR, get_active_model
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +104,7 @@ class OCREngine:
 
         # Call Ollama API
         payload = {
-            "model": OCR_MODEL,
+            "model": get_active_model(),
             "messages": [
                 {
                     "role": "user",
@@ -214,7 +214,8 @@ class OCREngine:
             r.raise_for_status()
             models = [m["name"] for m in r.json().get("models", [])]
             # Check if our OCR model is present (handle tag variations)
-            return any(OCR_MODEL.split(":")[0] in m for m in models)
+            ocr_model = get_active_model()
+            return any(ocr_model.split(":")[0] in m for m in models)
         except Exception:
             return False
 
