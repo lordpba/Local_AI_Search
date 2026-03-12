@@ -583,8 +583,8 @@ def create_app() -> gr.Blocks:
                 with gr.Row():
                     profile_radio = gr.Radio(
                         choices=[
-                            ("⚡ Veloce — GPU 4 GB, risposte rapide (qwen3.5:4b)", "fast"),
-                            ("🎯 Preciso — GPU 8 GB, risposte accurate (qwen3.5:9b)", "precise"),
+                            ("⚡ Veloce — GPU 6-8 GB, risposte rapide (qwen3.5:9b)", "fast"),
+                            ("🎯 Preciso — GPU 12 GB+, risposte più accurate (gemma3:12b)", "precise"),
                             ("🚀 Massimo — 2× GPU 12 GB, un modello per tutto (qwen3.5:27b)", "maximum"),
                         ],
                         value=UserConfig.load().profile,
@@ -729,6 +729,9 @@ def create_app() -> gr.Blocks:
             </div>
             """
         )
+
+    # Auto-check system status every time the page is loaded/refreshed
+    app.load(fn=on_check_system, outputs=system_status)
 
     return app
 

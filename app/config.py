@@ -20,9 +20,8 @@ CONFIG_FILE = DATA_DIR / "config.json"
 MANIFEST_FILE = DATA_DIR / "index_manifest.json"
 
 # ─── Ollama connection ────────────────────────────────────────────────────────
-# In Docker we usually point this to host.docker.internal so the container can
-# reach the Ollama instance running on the host. Outside Docker, localhost is
-# still the sensible default.
+# With network_mode: host, the container shares the host's network stack,
+# so Ollama is reachable at localhost:11434 (its default bind address).
 
 _DEFAULT_OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 
@@ -54,15 +53,15 @@ OCR_MODEL = UNIFIED_MODEL
 PROFILES = {
     "fast": {
         "name": "⚡ Veloce",
-        "description": "GPU 4 GB · Risposte rapide",
-        "model": "qwen3.5:4b",
-        "gpu_min_gb": 4,
+        "description": "GPU 6-8 GB · Risposte rapide",
+        "model": "qwen3.5:9b",
+        "gpu_min_gb": 6,
     },
     "precise": {
         "name": "🎯 Preciso",
-        "description": "GPU 8 GB · Risposte accurate",
-        "model": "qwen3.5:9b",
-        "gpu_min_gb": 8,
+        "description": "GPU 12 GB+ · Risposte più accurate",
+        "model": "gemma3:12b",
+        "gpu_min_gb": 12,
     },
     "maximum": {
         "name": "🚀 Massimo",
@@ -149,8 +148,8 @@ def host_to_container_path(host_path: str) -> str:
     """Translate a host filesystem path to the container-mapped path."""
     if not HOST_HOME_PATH:
         return host_path  # Not in Docker or no mapping
-    hp = host_path.replace("\\", "/").rstrip("/")
-    home = HOST_HOME_PATH.replace("\\", "/").rstrip("/")
+    hp = host_path.rstrip("/")
+    home = HOST_HOME_PATH.rstrip("/")
     if hp.startswith(home):
         return CONTAINER_HOME_MOUNT + hp[len(home):]
     return host_path  # Path outside HOME — can't translate
@@ -160,7 +159,7 @@ def container_to_host_path(container_path: str) -> str:
     """Translate a container-mapped path back to the host path (for display)."""
     if not HOST_HOME_PATH:
         return container_path
-    cp = container_path.replace("\\", "/").rstrip("/")
+    cp = container_path.rstrip("/")
     mount = CONTAINER_HOME_MOUNT.rstrip("/")
     if cp.startswith(mount):
         return HOST_HOME_PATH.rstrip("/") + cp[len(mount):]
