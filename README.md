@@ -4,6 +4,25 @@
 
 PrivateSearch lets you search and chat with your personal documents using artificial intelligence, without ever sending data over the network. Everything is processed locally on your machine.
 
+---
+## 🖥️💡 Use a Remote DGX as LLM Vision Provider (via Ollama)
+
+**You can use a remote NVIDIA DGX server as your LLM Vision provider through Ollama!**
+
+- Offload heavy multimodal (Vision+Text) LLM tasks to a powerful remote DGX, while keeping your search and UI local.
+- Just set the Ollama endpoint to your DGX's Ollama server (e.g. `http://your-dgx-ip:11434`) in the Config tab.
+- Works for both chat and OCR (Vision) tasks, including Qwen3.5 multimodal models.
+- All document indexing and search logic remains local and private.
+
+> **Example:**
+> - Run Ollama with Qwen3.5 on your DGX (with vision support)
+> - Set the Ollama URL in PrivateSearch to your DGX's address
+> - Enjoy local search with remote LLM Vision power!
+
+This enables high-performance document understanding and OCR even on lightweight local machines, leveraging enterprise-grade hardware only for LLM inference.
+
+---
+
 ## ✨ Features
 
 - 🔍 **Hybrid search** — semantic search (ChromaDB + bge-m3) combined with keyword search (BM25), fused via Reciprocal Rank Fusion (RRF)
@@ -170,13 +189,14 @@ OCR uses the same Qwen3.5 model as the active profile, with:
 - **Italian OCR prompt**: optimized for government forms, tax codes, dates, IBANs
 - **Persistent cache**: each page is processed only once and saved to disk
 
-## 🌐 Cross-platform: Linux + Windows
 
-PrivateSearch works on both operating systems:
+## 🌐 Cross-platform: Linux + Windows + Remote DGX
+
+PrivateSearch works on both operating systems and supports remote LLM providers:
 
 - **Document paths**: you can enter either `/home/mario/Documents` (Linux) or `C:\Users\mario\Documents` (Windows) — normalization is automatic
 - **Docker networking**: uses bridge network + `host.docker.internal` to reach Ollama on the host, compatible with Docker Desktop (Windows) and Docker Engine (Linux)
-- **Remote Ollama**: you can configure a remote Ollama server (e.g. `http://192.168.1.100:11434`) from the Config tab
+- **Remote Ollama / DGX**: you can configure a remote Ollama server (e.g. `http://192.168.1.100:11434` or your DGX address) from the Config tab. This allows you to use a remote NVIDIA DGX as your LLM Vision provider for chat and OCR.
 
 > **Windows note**: Ollama must listen on `0.0.0.0` (not just `127.0.0.1`) to be reachable from the Docker container.
 
