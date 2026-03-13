@@ -91,8 +91,10 @@ def check_required_models(config: UserConfig) -> dict:
     required = config.required_models
     status = {}
     for model in required:
-        base = model.split(":")[0]
-        status[model] = any(base in m for m in installed)
+        status[model] = any(
+            m == model or m == f"{model}:latest" or (":" not in model and m.startswith(f"{model}:"))
+            for m in installed
+        )
     return status
 
 
@@ -586,6 +588,7 @@ def create_app() -> gr.Blocks:
                             ("⚡ Veloce — GPU 4 GB, risposte rapide (qwen3.5:4b)", "fast"),
                             ("🎯 Preciso — GPU 8 GB, risposte accurate (qwen3.5:9b)", "precise"),
                             ("🚀 Massimo — 2× GPU 12 GB, un modello per tutto (qwen3.5:27b)", "maximum"),
+                            ("🖥️ DGX — Modello 35B (qwen3.5:35b)", "custom"),
                         ],
                         value=UserConfig.load().profile,
                         label="Seleziona il profilo adatto alla tua GPU",

@@ -315,7 +315,6 @@ class ChatEngine:
             r = httpx.get(f"{OLLAMA_HOST}/api/tags", timeout=5.0)
             r.raise_for_status()
             models = [m["name"] for m in r.json().get("models", [])]
-            model_base = self.model.split(":")[0]
-            return any(model_base in m for m in models)
+            return any(m == self.model or m == f"{self.model}:latest" or (":" not in self.model and m.startswith(f"{self.model}:")) for m in models)
         except Exception:
             return False

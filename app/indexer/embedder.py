@@ -121,7 +121,7 @@ class Embedder:
             r = httpx.get(f"{OLLAMA_HOST}/api/tags", timeout=5.0)
             r.raise_for_status()
             models = [m["name"] for m in r.json().get("models", [])]
-            return any(EMBEDDING_MODEL.split(":")[0] in m for m in models)
+            return any(m == EMBEDDING_MODEL or m == f"{EMBEDDING_MODEL}:latest" or (":" not in EMBEDDING_MODEL and m.startswith(f"{EMBEDDING_MODEL}:")) for m in models)
         except Exception:
             return False
 

@@ -63,6 +63,12 @@ PROFILES = {
         "model": "qwen3.5:9b",
         "gpu_min_gb": 8,
     },
+    "custom": {
+        "name": "🖥️ DGX",
+        "description": "Modello 35B",
+        "model": "qwen3.5:35b",
+        "gpu_min_gb": 24,
+    },
     "maximum": {
         "name": "🚀 Massimo",
         "description": "2× GPU 12 GB · Un solo modello per tutto (OCR + Chat)",

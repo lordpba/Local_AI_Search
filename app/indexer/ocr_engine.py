@@ -215,7 +215,7 @@ class OCREngine:
             models = [m["name"] for m in r.json().get("models", [])]
             # Check if our OCR model is present (handle tag variations)
             ocr_model = get_active_model()
-            return any(ocr_model.split(":")[0] in m for m in models)
+            return any(m == ocr_model or m == f"{ocr_model}:latest" or (":" not in ocr_model and m.startswith(f"{ocr_model}:")) for m in models)
         except Exception:
             return False
 
